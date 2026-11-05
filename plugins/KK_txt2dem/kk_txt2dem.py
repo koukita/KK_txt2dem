@@ -272,15 +272,11 @@ class KkTxt2DemPlugin:
         icon = QIcon(os.path.join(os.path.dirname(__file__), "icon.png"))
         self.action = QAction(icon, "kk_txt2dem", self.iface.mainWindow())
         self.action.triggered.connect(self.run)
-        self.iface.addPluginToMenu("kk_txt2dem", self.action)
         self.iface.addToolBarIcon(self.action)
         if hasattr(self.iface, "addPluginToRasterMenu"):
             self.iface.addPluginToRasterMenu("kk_txt2dem", self.action)
-        else:
-            self.iface.addPluginToMenu("kk_txt2dem", self.action)
 
     def unload(self):
-        self.iface.removePluginMenu("kk_txt2dem", self.action)
         self.iface.removeToolBarIcon(self.action)
         if hasattr(self.iface, "removePluginRasterMenu"):
             self.iface.removePluginRasterMenu("kk_txt2dem", self.action)
