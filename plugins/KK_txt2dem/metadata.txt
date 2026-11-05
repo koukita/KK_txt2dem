@@ -1,0 +1,12 @@
+[general]
+name=kk_txt2dem
+qgisMinimumVersion=3.40
+qgisMaximumVersion=4.99
+description=ZIP内の標高値テキストを標高DEMに変換して結合します
+version=0.9.0
+author=kouichi kita
+email=
+repository=
+hasProcessingProvider=no
+
+icon=icon.png
