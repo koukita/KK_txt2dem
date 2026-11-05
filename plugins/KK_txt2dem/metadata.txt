@@ -5,8 +5,15 @@ qgisMaximumVersion=4.99
 description=ZIP内の標高値テキストを標高DEMに変換して結合します
 version=0.9.0
 author=kouichi kita
-email=
-repository=
-hasProcessingProvider=no
+email=qgisshitumon@gmail.com
+homepage=https://github.com/koukita/KK_txt2dem
+tracker=https://github.com/koukita/KK_txt2dem/issues/
+repository=https://github.com/koukita/KK_txt2dem
 
 icon=icon.png
+
+category=Raster
+tags=QGIS,DEM,CSV,TXT,航空レーザ
+
+changelog=
+    0.9.0 - 2026-11-05 - 初版公開
