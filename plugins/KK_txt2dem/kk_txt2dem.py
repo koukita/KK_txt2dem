@@ -9,6 +9,7 @@ from xml.sax.saxutils import escape
 from qgis.PyQt.QtCore import QCoreApplication, QTimer, Qt
 from qgis.PyQt.QtWidgets import (
     QAction,
+    QCheckBox,
     QDialog,
     QDialogButtonBox,
     QFormLayout,
@@ -74,12 +75,13 @@ def log_error(message, error=None):
 class KkTxt2DemDialog(QDialog):
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.setWindowTitle("kk_txt2dem")
+        self.setWindowTitle("グリッドまたはグランドCSVを標高DEMに変換")
         self.resize(620, 520)
         self._entries = {}
 
         layout = QVBoxLayout(self)
 
+        layout.addWidget(QLabel("　CSVファイルまたはZIPファイルのフォルダを選択"))
         folder_layout = QHBoxLayout()
         self.folder_widget = QgsFileWidget()
         self.folder_widget.setStorageMode(QgsFileWidget.GetDirectory)
@@ -96,7 +98,7 @@ class KkTxt2DemDialog(QDialog):
         folder_layout.addWidget(self.folder_widget)
         layout.addLayout(folder_layout)
 
-        layout.addWidget(QLabel("ZIP内の標高値テキスト (*.txt)"))
+        layout.addWidget(QLabel("　ZIP内の標高値テキスト (*.txt)"))
         self.file_list = QListWidget()
         layout.addWidget(self.file_list)
 
@@ -131,6 +133,8 @@ class KkTxt2DemDialog(QDialog):
         self.grid_size.setSingleStep(0.5)
         self.grid_size.setSuffix(" 座標単位（0で自動）")
         form_layout.addRow("グリッドサイズ", self.grid_size)
+        self.interpolate_nodata = QCheckBox("Nodata値の補間を行う（処理に時間がかかります）")
+        form_layout.addRow("", self.interpolate_nodata)
 
         self.crs_widget = QgsProjectionSelectionWidget()
         self.crs_widget.setCrs(QgsCoordinateReferenceSystem("EPSG:6677"))
@@ -304,6 +308,7 @@ class KkTxt2DemPlugin:
         z_column = self.dialog.z_column.value() - 1
         crs = self.dialog.crs_widget.crs()
         grid_size = self.dialog.grid_size.value()
+        interpolate_nodata = self.dialog.interpolate_nodata.isChecked()
 
         progress = QProgressDialog(
             "標高DEMを作成しています...", "キャンセル", 0, len(selected),
@@ -334,7 +339,7 @@ class KkTxt2DemPlugin:
                 )
                 self._convert_text(
                     source_path, member_name, temp_raster, x_column, y_column,
-                    z_column, crs, grid_size, progress
+                    z_column, crs, grid_size, progress, interpolate_nodata
                 )
                 temp_rasters.append(temp_raster)
                 progress.setValue(index)
@@ -379,7 +384,7 @@ class KkTxt2DemPlugin:
 
     def _convert_text(
         self, zip_path, member_name, output, x_column, y_column, z_column, crs,
-        grid_size=0.0, progress=None
+        grid_size=0.0, progress=None, interpolate_nodata=False
     ):
         display_name = member_name or os.path.basename(zip_path)
         try:
@@ -505,6 +510,12 @@ class KkTxt2DemPlugin:
             raise RuntimeError(
                 "{} のVRTレイヤを読み込めませんでした。".format(display_name)
             )
+        if interpolate_nodata:
+            algorithm = "linear:radius=-1:nodata=-9999"
+        else:
+            algorithm = "nearest:radius1={0}:radius2={0}:angle=0:nodata=-9999".format(
+                cell_size * 1.5
+            )
         result = gdal.Grid(
             output,
             source_dataset,
@@ -513,9 +524,7 @@ class KkTxt2DemPlugin:
             height=height,
             outputBounds=output_bounds,
             outputType=gdal.GDT_Float32,
-            algorithm="nearest:radius1={0}:radius2={0}:angle=0:nodata=-9999".format(
-                cell_size * 1.5
-            ),
+            algorithm=algorithm,
             zfield="Z",
             creationOptions=["COMPRESS=LZW"],
             layers=["points"],
@@ -523,9 +532,29 @@ class KkTxt2DemPlugin:
         if result is None:
             raise RuntimeError("{} のラスター生成に失敗しました。".format(display_name))
         result = None
+
         raster = gdal.Open(output, gdal.GA_Update)
         if raster is None:
             raise RuntimeError("{} のラスターを開けませんでした。".format(display_name))
+        band = raster.GetRasterBand(1)
+        values = band.ReadAsArray()
+        if interpolate_nodata and values is not None:
+            import numpy as np
+            values = np.asarray(values)
+            no_data_mask = ~np.isfinite(values) | (values == -9999)
+            if np.any(no_data_mask):
+                from scipy.ndimage import distance_transform_edt
+                _, indices = distance_transform_edt(
+                    no_data_mask, return_distances=True, return_indices=True
+                )
+                values[no_data_mask] = values[
+                    indices[0][no_data_mask], indices[1][no_data_mask]
+                ]
+                band.WriteArray(values)
+        band.SetNoDataValue(-9999)
+        raster = None
+
+        raster = gdal.Open(output, gdal.GA_Update)
         raster.SetProjection(spatial_reference.ExportToWkt())
         raster = None
         for auxiliary_path in (csv_path, vrt_path):
