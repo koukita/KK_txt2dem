@@ -4,7 +4,6 @@ import shutil
 import tempfile
 import zipfile
 from contextlib import contextmanager
-from xml.sax.saxutils import escape
 
 from qgis.PyQt.QtCore import QCoreApplication, QTimer, Qt
 from qgis.PyQt.QtWidgets import (
@@ -37,13 +36,19 @@ from qgis.core import (
 from qgis.gui import QgsFileWidget, QgsProjectionSelectionWidget
 
 
+def xml_escape(value):
+    """Escape text used inside XML elements."""
+    return str(value).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+
+
 def _qt_enum(owner, name, legacy_name=None):
     legacy_name = legacy_name or name
     scoped = getattr(owner, legacy_name, None)
     if scoped is not None:
         return scoped
     for nested_name in (
-        "ItemFlag", "ItemFlags", "WindowModality", "CheckState", "ButtonRole"
+        "ItemFlag", "ItemFlags", "WindowModality", "CheckState", "ButtonRole",
+        "StorageMode"
     ):
         nested = getattr(owner, nested_name, None)
         if nested is not None:
@@ -60,6 +65,8 @@ QT_CHECKED = _qt_enum(Qt, "Checked", "Checked")
 QT_WINDOW_MODAL = _qt_enum(Qt, "WindowModal")
 QT_ACCEPT_ROLE = _qt_enum(QDialogButtonBox, "AcceptRole")
 QT_REJECT_ROLE = _qt_enum(QDialogButtonBox, "RejectRole")
+QT_STORAGE_GET_DIRECTORY = _qt_enum(QgsFileWidget, "GetDirectory", "GetDirectory")
+QT_STORAGE_SAVE_FILE = _qt_enum(QgsFileWidget, "SaveFile", "SaveFile")
 
 
 def log_error(message, error=None):
@@ -84,7 +91,7 @@ class KkTxt2DemDialog(QDialog):
         layout.addWidget(QLabel("　CSVファイルまたはZIPファイルのフォルダを選択"))
         folder_layout = QHBoxLayout()
         self.folder_widget = QgsFileWidget()
-        self.folder_widget.setStorageMode(QgsFileWidget.GetDirectory)
+        self.folder_widget.setStorageMode(QT_STORAGE_GET_DIRECTORY)
         self.folder_widget.fileChanged.connect(self._load_zip_files)
         for button in (
             self.folder_widget.findChildren(QPushButton)
@@ -141,7 +148,7 @@ class KkTxt2DemDialog(QDialog):
         form_layout.addRow("座標参照系", self.crs_widget)
 
         self.output_widget = QgsFileWidget()
-        self.output_widget.setStorageMode(QgsFileWidget.SaveFile)
+        self.output_widget.setStorageMode(QT_STORAGE_SAVE_FILE)
         self.output_widget.setFilter("GeoTIFF (*.tif *.tiff)")
         form_layout.addRow("出力ファイル", self.output_widget)
         layout.addLayout(form_layout)
@@ -473,8 +480,8 @@ class KkTxt2DemPlugin:
             max_y + cell_size / 2.0,
         )
 
-        csv_source = escape(os.path.abspath(csv_path))
-        vrt_srs = escape(
+        csv_source = xml_escape(os.path.abspath(csv_path))
+        vrt_srs = xml_escape(
             spatial_reference.ExportToWkt()
         )
         with open(vrt_path, "w", encoding="utf-8") as vrt_file:
@@ -489,7 +496,7 @@ class KkTxt2DemPlugin:
                 '  </OGRVRTLayer>\n'
                 '</OGRVRTDataSource>\n'.format(
                     csv_source,
-                    escape(os.path.splitext(os.path.basename(csv_path))[0]),
+                    xml_escape(os.path.splitext(os.path.basename(csv_path))[0]),
                     vrt_srs,
                 )
             )

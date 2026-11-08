@@ -4,7 +4,7 @@ qgisMinimumVersion=3.40
 qgisMaximumVersion=4.99
 description=This plugin converts CSV files containing grid data or ground data (ID, X, Y, Z) acquired via airborne laser scanning into elevation DEM rasters. It can process CSV files even when they are contained within a ZIP archive. Multiple files can be processed in a single batch. The batch-processed data is merged into a single GeoTIFF file and saved. For “No Data” interpolation of ground data, after TIN interpolation, “No Data” values on the raster are interpolated using the nearest-slope method. Differences may arise compared to data gridded using other methods due to variations in grid positions and interpolation methods.
 about=航空レーザーで取得されたグリッドデータまたはグランドデータ（ID,X,y,Z）のCSVを標高DEMラスタに変換するプラグインです。CSVをパッケージしたZIPのままでも処理を行えます。複数のファイルを一括で処理を行うことが可能です。一括処理したデータは一つのGeoTiffファイルにマージして保存します。グランドデータのNodata補間は、TIN補間後、ラスター上のNodataを最近傾点補間を行っています。ほかの方法でグリッド化されたデータとは、グリッドの位置や補間方法の違いにより差が出る場合があります。
-version=0.9.1
+version=0.9.2
 author=kouichi kita
 email=qgisshitumon@gmail.com
 homepage=https://github.com/koukita/KK_txt2dem
@@ -17,5 +17,6 @@ category=Raster
 tags=QGIS,DEM,CSV,TXT,航空レーザ
 
 changelog=
+    0.9.2 - 2026-11-07 - QT6対応で修正
     0.9.1 - 2026-11-07 - Nodata補間を追加し、グランドデータも変換できるようにした
     0.9.0 - 2026-11-05 - 初版公開
